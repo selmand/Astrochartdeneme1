@@ -1,0 +1,1317 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Natal Chart Demo (Browser Only)</title>
+  <style>
+    :root{
+      --fg:#111; --muted:#666; --bg:#fff; --line:#ddd; --soft:#f7f7f7; --err:#b00020;
+
+      --axis:#c40000;
+      --aspSoft:#2b6cb0;
+      --aspHard:#c40000;
+
+      --fire:#d6452d;
+      --earth:#2f8f3a;
+      --air:#c08a00;
+      --water:#2b6cb0;
+
+      --sun:#d4a017;
+      --moon:#707070;
+      --mercury:#1f8a70;
+      --venus:#b83280;
+      --mars:#c40000;
+      --jupiter:#4a3fb3;
+      --saturn:#5a3d2e;
+      --uranus:#0ea5a5;
+      --neptune:#1f4aa8;
+      --pluto:#7a1f2b;
+
+      --node:#111;
+      --sn:#111;
+      --lilith:#111;
+      --chiron:#111;
+      --juno:#111;
+      --angle:#111;
+    }
+    body { margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif; color:var(--fg); background:var(--bg); }
+    header { padding:14px 16px; border-bottom:1px solid var(--line); background:var(--soft); }
+    header h1 { margin:0; font-size:16px; font-weight:800; }
+    header .note { margin-top:6px; color:var(--muted); font-size:12px; }
+
+    main { padding:16px; display:grid; gap:14px; grid-template-columns:380px 1fr; align-items:start; }
+    @media (max-width:980px){ main{ grid-template-columns:1fr; } }
+
+    .card{ border:1px solid var(--line); border-radius:10px; overflow:hidden; }
+    .card .hd{ padding:10px 12px; font-weight:800; background:var(--soft); border-bottom:1px solid var(--line); }
+    .card .bd{ padding:12px; }
+
+    .grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .grid .full{ grid-column:1 / -1; }
+
+    label{ display:block; font-size:12px; color:var(--muted); margin-bottom:4px; }
+    input, select, button{
+      width:100%; box-sizing:border-box; padding:9px 10px; border:1px solid var(--line);
+      border-radius:8px; font-size:14px; background:#fff;
+    }
+    input[readonly]{ background:#fafafa; color:#333; }
+    button{ cursor:pointer; font-weight:800; }
+
+    .tiny{ font-size:12px; color:var(--muted); }
+    .warn{ color:#8a5a00; background:#fff7e6; border:1px solid #ffd27d; padding:10px; border-radius:10px; }
+    .error{ color:#fff; background:var(--err); padding:10px; border-radius:10px; }
+    .ok{ color:#0a6; background:#eafff2; border:1px solid #b5f0cf; padding:10px; border-radius:10px; }
+    .pill{ display:inline-block; padding:3px 8px; border-radius:999px; border:1px solid var(--line); background:#fff; font-size:12px; color:var(--muted); }
+
+    .autocomplete{ position:relative; }
+    .results{
+      position:absolute; z-index:20; left:0; right:0; top:calc(100% + 6px);
+      border:1px solid var(--line); border-radius:10px; background:#fff; overflow:hidden;
+      box-shadow:0 12px 30px rgba(0,0,0,.08);
+      max-height:260px; overflow-y:auto;
+    }
+    .results button{
+      width:100%; text-align:left; border:0; border-bottom:1px solid #eee;
+      padding:10px 12px; background:#fff; border-radius:0; font-weight:700;
+    }
+    .results button:hover{ background:#f6f6f6; }
+    .results button:last-child{ border-bottom:0; }
+
+    .split{ display:grid; grid-template-columns:520px 1fr; gap:14px; }
+    @media (max-width:1200px){ .split{ grid-template-columns:1fr; } }
+
+    .svgWrap{ display:grid; place-items:center; padding:12px; }
+    svg{ max-width:100%; height:auto; }
+
+    .tables{ display:grid; gap:14px; }
+    table{ width:100%; border-collapse:collapse; font-size:13px; }
+    th, td{ border:1px solid var(--line); padding:6px 8px; vertical-align:top; }
+    th{ background:var(--soft); text-align:left; }
+
+    .mono{ font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono",monospace; }
+    .center{ text-align:center; }
+    .muted{ color:var(--muted); }
+    .small{ font-size:12px; }
+    .footerline{ margin-top:8px; color:var(--muted); font-size:12px; }
+
+    /* Matrix: phone-fit, symbol only */
+    #aspectMatrix{ width:100%; table-layout:fixed; font-size:11px; }
+    #aspectMatrix th, #aspectMatrix td{ padding:4px 2px; }
+    #aspectMatrix .aspectCell{ text-align:center; }
+    #aspectMatrix .lab{ display:block; font-size:10px; color:var(--muted); margin-top:2px; }
+    #aspectMatrix .aspSym{ font-size:18px; line-height:1; display:inline-block; }
+    #aspectMatrix .aspSoftTxt{ color:var(--aspSoft); font-weight:900; }
+    #aspectMatrix .aspHardTxt{ color:var(--aspHard); font-weight:900; }
+    @media (max-width:520px){
+      #aspectMatrix{ font-size:10px; }
+      #aspectMatrix th, #aspectMatrix td{ padding:3px 1px; }
+      #aspectMatrix .aspSym{ font-size:16px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Natal Chart Demo (tek dosya, sadece tarayıcı)</h1>
+    <div class="note">Nasıl çalıştırılır: Bu dosyayı <span class="mono">index.html</span> olarak kaydet, GitHub Pages/HTTP üzerinden aç. İnternet şart (CDN + Nominatim + WASM). Backend yok.</div>
+  </header>
+
+  <main>
+    <section class="card">
+      <div class="hd">Girdi</div>
+      <div class="bd">
+        <div id="statusBox" class="tiny"></div>
+
+        <div class="grid" style="margin-top:10px;">
+          <div>
+            <label>Tarih</label>
+            <input id="dateInput" type="date" />
+            <div class="tiny" id="datePretty"></div>
+          </div>
+          <div>
+            <label>Saat (24 saat)</label>
+            <input id="timeInput" type="time" step="60" />
+          </div>
+
+          <div class="full autocomplete">
+            <label>Lokasyon (şehir/ülke ara)</label>
+            <input id="locInput" placeholder="Ankara, Türkiye" autocomplete="off" />
+            <div id="locResults" class="results" style="display:none;"></div>
+            <div class="tiny" style="margin-top:6px;">Geocoding: Nominatim (OpenStreetMap) • min 3 karakter • debounce + cache</div>
+          </div>
+
+          <div>
+            <label>Enlem (lat)</label>
+            <input id="latInput" readonly />
+          </div>
+          <div>
+            <label>Boylam (lon)</label>
+            <input id="lonInput" readonly />
+          </div>
+
+          <div class="full">
+            <label>Timezone (IANA)</label>
+            <select id="tzSelect"></select>
+            <div class="tiny" style="margin-top:6px;">Lokasyondan otomatik (tz-lookup). İstersen elle değiştir.</div>
+          </div>
+
+          <div class="full" id="dstBox" style="display:none;"></div>
+
+          <div class="full">
+            <button id="calcBtn">Hesapla</button>
+            <div class="tiny" style="margin-top:8px;">
+              Ev sistemi: <span class="pill">Placidus</span>
+              <span style="margin-left:10px" class="muted">Otomatik güncelleme: input değişince debounce ile yeniden hesaplar.</span>
+            </div>
+          </div>
+
+          <div class="full">
+            <div class="card" style="border-radius:10px;">
+              <div class="hd">Seçilen Lokasyon Özeti</div>
+              <div class="bd">
+                <div class="small"><span class="muted">Ad:</span> <span id="locName">—</span></div>
+                <div class="small"><span class="muted">Lat/Lon:</span> <span id="locLatLon">—</span></div>
+                <div class="small"><span class="muted">Timezone:</span> <span id="locTz">—</span></div>
+                <div class="small"><span class="muted">Offset:</span> <span id="locOffset">—</span></div>
+                <div class="small"><span class="muted">Local → UTC:</span> <span id="locUtc">—</span></div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="hd">Çıktı</div>
+      <div class="bd">
+        <div class="split">
+          <div class="card">
+            <div class="hd">Natal Chart Wheel (SVG)</div>
+            <div class="bd svgWrap">
+              <div id="chartWrap"></div>
+              <div class="footerline">ASC sabit sol yatay • Mirror aktif • Degree etiketleri gezegenin “diğer” yanında (tanjant yönünde) • Stellium bölgesinde label ayrıştırma (açı + dışa kaydırma) geliştirildi</div>
+            </div>
+          </div>
+
+          <div class="tables">
+            <div class="card">
+              <div class="hd">Gezegen / Nokta Konumları</div>
+              <div class="bd">
+                <div class="tiny" id="engineInfo"></div>
+                <div style="overflow:auto; margin-top:8px;">
+                  <table id="planetTable">
+                    <thead>
+                      <tr>
+                        <th>Body</th>
+                        <th>Lon (0–360)</th>
+                        <th>Burç</th>
+                        <th>Derece</th>
+                        <th>R</th>
+                        <th class="center">Ev</th>
+                      </tr>
+                    </thead>
+                    <tbody></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="hd">Ev Cusp (Placidus)</div>
+              <div class="bd" style="overflow:auto;">
+                <table id="houseTable">
+                  <thead>
+                    <tr>
+                      <th>Ev</th>
+                      <th>Burç</th>
+                      <th>Derece</th>
+                      <th>Lon (0–360)</th>
+                    </tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="hd">Açı Listesi (Majör)</div>
+              <div class="bd" style="overflow:auto;">
+                <table id="aspectList">
+                  <thead>
+                    <tr>
+                      <th>Body A</th>
+                      <th>Body B</th>
+                      <th>Açı</th>
+                      <th>Orb</th>
+                      <th>Applying/Separating</th>
+                    </tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="hd">Açı Tablosu (Matrix)</div>
+              <div class="bd">
+                <table id="aspectMatrix"></table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+  </main>
+
+  <script type="module">
+    const $ = (sel) => document.querySelector(sel);
+    const pad2 = (n) => String(n).padStart(2, "0");
+    const deg2rad = (d) => (d * Math.PI) / 180;
+    const rad2deg = (r) => (r * 180) / Math.PI;
+    const norm360 = (d) => ((d % 360) + 360) % 360;
+    const norm180 = (d) => {
+      let x = ((d % 360) + 360) % 360;
+      if (x > 180) x -= 360;
+      return x;
+    };
+    const fmtDMS = (deg) => {
+      const d = norm360(deg);
+      const signIndex = Math.floor(d / 30);
+      const signDeg = d - signIndex * 30;
+      const dd = Math.floor(signDeg);
+      const mmFloat = (signDeg - dd) * 60;
+      const mm = Math.floor(mmFloat);
+      const ss = Math.floor((mmFloat - mm) * 60);
+      return { signIndex, dd, mm, ss };
+    };
+    const orbToText = (orbDeg) => {
+      const a = Math.abs(orbDeg);
+      const d = Math.floor(a);
+      const m = Math.floor((a - d) * 60);
+      return `${d}°${pad2(m)}′`;
+    };
+    const debounce = (fn, wait=350) => {
+      let t = null;
+      return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), wait); };
+    };
+    const isSupportedIana = (tz) => {
+      try { new Intl.DateTimeFormat("en-US", { timeZone: tz }).format(new Date()); return true; }
+      catch { return false; }
+    };
+    const fmtGmtOffset = (minutes) => {
+      const sign = minutes >= 0 ? "+" : "-";
+      const abs = Math.abs(minutes);
+      const hh = Math.floor(abs / 60);
+      const mm = Math.floor(abs % 60);
+      return `GMT${sign}${pad2(hh)}:${pad2(mm)}`;
+    };
+
+    import tzLookup from "https://cdn.jsdelivr.net/npm/tz-lookup@6.1.25/+esm";
+    import SwissEph from "https://cdn.jsdelivr.net/gh/prolaxu/swisseph-wasm@main/src/swisseph.js";
+
+    const SIGNS = [
+      { name:"Koç", sym:"♈", el:"fire" },   { name:"Boğa", sym:"♉", el:"earth" },
+      { name:"İkizler", sym:"♊", el:"air" },{ name:"Yengeç", sym:"♋", el:"water" },
+      { name:"Aslan", sym:"♌", el:"fire" }, { name:"Başak", sym:"♍", el:"earth" },
+      { name:"Terazi", sym:"♎", el:"air" }, { name:"Akrep", sym:"♏", el:"water" },
+      { name:"Yay", sym:"♐", el:"fire" },   { name:"Oğlak", sym:"♑", el:"earth" },
+      { name:"Kova", sym:"♒", el:"air" },   { name:"Balık", sym:"♓", el:"water" }
+    ];
+
+    const SIGN_EL_COL = { fire:"var(--fire)", earth:"var(--earth)", air:"var(--air)", water:"var(--water)" };
+
+    const PLANET_COLORS = {
+      Sun:"var(--sun)", Moon:"var(--moon)", Mercury:"var(--mercury)", Venus:"var(--venus)", Mars:"var(--mars)",
+      Jupiter:"var(--jupiter)", Saturn:"var(--saturn)", Uranus:"var(--uranus)", Neptune:"var(--neptune)", Pluto:"var(--pluto)",
+      Node:"var(--node)", SouthNode:"var(--sn)", Lilith:"var(--lilith)", Chiron:"var(--chiron)", Juno:"var(--juno)",
+      ASC:"var(--angle)", MC:"var(--angle)"
+    };
+
+    const BODIES = [
+      { key:"Sun",    label:"Güneş",     glyph:"☉", idKey:"SE_SUN" },
+      { key:"Moon",   label:"Ay",        glyph:"☽", idKey:"SE_MOON" },
+      { key:"Mercury",label:"Merkür",    glyph:"☿", idKey:"SE_MERCURY" },
+      { key:"Venus",  label:"Venüs",     glyph:"♀", idKey:"SE_VENUS" },
+      { key:"Mars",   label:"Mars",      glyph:"♂", idKey:"SE_MARS" },
+      { key:"Jupiter",label:"Jüpiter",   glyph:"♃", idKey:"SE_JUPITER" },
+      { key:"Saturn", label:"Satürn",    glyph:"♄", idKey:"SE_SATURN" },
+      { key:"Uranus", label:"Uranüs",    glyph:"♅", idKey:"SE_URANUS" },
+      { key:"Neptune",label:"Neptün",    glyph:"♆", idKey:"SE_NEPTUNE" },
+      { key:"Pluto",  label:"Plüton",    glyph:"♇", idKey:"SE_PLUTO" },
+      { key:"Node",   label:"True Node", glyph:"☊", idKey:"SE_TRUE_NODE" },
+
+      { key:"Lilith", label:"Black Moon", glyph:"⚸", idKey:"SE_MEAN_APOG" },
+      { key:"Chiron", label:"Chiron", glyph:"⚷", idKey:"SE_CHIRON" },
+      { key:"Juno",   label:"Juno", glyph:"⚵", idKey:"SE_JUNO", asteroidFallback: 3 },
+
+      { key:"SouthNode", label:"South Node", glyph:"☋", computed:true },
+    ];
+
+    const MATRIX_KEYS = ["Sun","Moon","Mercury","Venus","Mars","Jupiter","Saturn","Uranus","Neptune","Pluto","Node"];
+
+    const ASPECTS = [
+      { name:"Kavuşum", angle:0,   sym:"☌", cls:"soft" },
+      { name:"Sekstil", angle:60,  sym:"✶", cls:"soft" },
+      { name:"Kare",    angle:90,  sym:"□", cls:"hard" },
+      { name:"Üçgen",   angle:120, sym:"△", cls:"soft" },
+      { name:"Karşıt",  angle:180, sym:"☍", cls:"hard" }
+    ];
+
+    class NominatimService {
+      constructor() { this.cache = new Map(); this.inflight = new Map(); }
+      async search(q) {
+        const query = (q || "").trim();
+        if (query.length < 3) return [];
+        const key = query.toLowerCase();
+        if (this.cache.has(key)) return this.cache.get(key);
+        if (this.inflight.has(key)) return this.inflight.get(key);
+
+        const url = new URL("https://nominatim.openstreetmap.org/search");
+        url.searchParams.set("format", "jsonv2");
+        url.searchParams.set("addressdetails", "1");
+        url.searchParams.set("limit", "7");
+        url.searchParams.set("q", query);
+
+        const p = fetch(url.toString(), { headers: { "Accept":"application/json", "Accept-Language":"tr" } })
+          .then(r => r.json())
+          .then(arr => {
+            const cleaned = (arr || []).map(x => ({
+              displayName: x.display_name,
+              lat: Number(x.lat),
+              lon: Number(x.lon)
+            }));
+            this.cache.set(key, cleaned);
+            this.inflight.delete(key);
+            return cleaned;
+          })
+          .catch(err => { this.inflight.delete(key); throw err; });
+
+        this.inflight.set(key, p);
+        return p;
+      }
+    }
+
+    class TimezoneService {
+      constructor() { this.tzList = this._build(); }
+      _build() {
+        let list = [];
+        try { if (Intl && typeof Intl.supportedValuesOf === "function") list = Intl.supportedValuesOf("timeZone") || []; } catch {}
+        if (!list.length) {
+          list = [
+            "Europe/Istanbul","Europe/London","Europe/Paris","Europe/Berlin","Europe/Moscow",
+            "America/New_York","America/Chicago","America/Denver","America/Los_Angeles",
+            "America/Sao_Paulo","Asia/Dubai","Asia/Tehran","Asia/Jerusalem","Asia/Kolkata",
+            "Asia/Bangkok","Asia/Singapore","Asia/Shanghai","Asia/Tokyo","Australia/Sydney",
+            "Pacific/Auckland","UTC"
+          ];
+        }
+        return list.filter(isSupportedIana);
+      }
+      lookup(lat, lon) {
+        const tz = tzLookup(lat, lon);
+        return isSupportedIana(tz) ? tz : null;
+      }
+    }
+
+    class TimeZoneMath {
+      static _dtfCache = new Map();
+      static _getDTF(timeZone) {
+        const key = `${timeZone}|en-CA`;
+        if (this._dtfCache.has(key)) return this._dtfCache.get(key);
+        const dtf = new Intl.DateTimeFormat("en-CA", {
+          timeZone,
+          year: "numeric", month: "2-digit", day: "2-digit",
+          hour: "2-digit", minute: "2-digit", second: "2-digit",
+          hourCycle: "h23"
+        });
+        this._dtfCache.set(key, dtf);
+        return dtf;
+      }
+      static _partsToObj(parts) {
+        const o = {};
+        for (const p of parts) if (p.type !== "literal") o[p.type] = p.value;
+        return {
+          year: Number(o.year), month: Number(o.month), day: Number(o.day),
+          hour: Number(o.hour), minute: Number(o.minute), second: Number(o.second)
+        };
+      }
+      static formatUTCmsInZone(utcMs, timeZone) {
+        const dtf = this._getDTF(timeZone);
+        const parts = dtf.formatToParts(new Date(utcMs));
+        return this._partsToObj(parts);
+      }
+      static getOffsetMinutes(timeZone, utcMs) {
+        const z = this.formatUTCmsInZone(utcMs, timeZone);
+        const localAsUTC = Date.UTC(z.year, z.month - 1, z.day, z.hour, z.minute, z.second);
+        return (localAsUTC - utcMs) / 60000;
+      }
+      static _matchesLocal(utcMs, timeZone, y, m, d, hh, mm) {
+        const z = this.formatUTCmsInZone(utcMs, timeZone);
+        return z.year === y && z.month === m && z.day === d && z.hour === hh && z.minute === mm;
+      }
+      static localToUtcCandidates(timeZone, y, m, d, hh, mm) {
+        if (!isSupportedIana(timeZone)) throw new Error(`Timezone desteklenmiyor: ${timeZone}`);
+        const naiveUTC = Date.UTC(y, m - 1, d, hh, mm, 0);
+
+        const samples = [
+          naiveUTC - 36*3600*1000, naiveUTC - 6*3600*1000, naiveUTC,
+          naiveUTC + 6*3600*1000,  naiveUTC + 36*3600*1000
+        ];
+        const offsets = new Set(samples.map(ms => this.getOffsetMinutes(timeZone, ms)));
+
+        {
+          let guess = naiveUTC;
+          for (let i=0;i<4;i++) {
+            const off = this.getOffsetMinutes(timeZone, guess);
+            const cand = naiveUTC - off*60000;
+            if (Math.abs(cand - guess) < 1) break;
+            guess = cand;
+          }
+          offsets.add(this.getOffsetMinutes(timeZone, guess));
+        }
+
+        const candidates = [];
+        for (const off of offsets) {
+          const cand = naiveUTC - off*60000;
+          if (this._matchesLocal(cand, timeZone, y, m, d, hh, mm)) candidates.push({ utcMs: cand, offsetMin: off });
+        }
+        candidates.sort((a,b) => a.utcMs - b.utcMs);
+        const uniq = [];
+        const seen = new Set();
+        for (const c of candidates) {
+          const k = String(c.utcMs);
+          if (!seen.has(k)) { seen.add(k); uniq.push(c); }
+        }
+        return uniq;
+      }
+      static analyzeLocal(timeZone, y, m, d, hh, mm) {
+        const cands = this.localToUtcCandidates(timeZone, y, m, d, hh, mm);
+        if (cands.length === 0) return { kind: "nonexistent", candidates: [] };
+        if (cands.length >= 2) return { kind: "ambiguous", candidates: cands.slice(0,2) };
+        return { kind: "unique", candidates: cands };
+      }
+      static pickCandidate(analyzeResult, preference) {
+        if (analyzeResult.kind === "unique") return analyzeResult.candidates[0];
+        if (analyzeResult.kind === "nonexistent") return null;
+        const [a,b] = analyzeResult.candidates;
+        return (preference === "earlier") ? a : b;
+      }
+      static utcMsToISOZ(utcMs) { return new Date(utcMs).toISOString(); }
+    }
+
+    class SwissEphEngine {
+      constructor() { this.swe = null; this.ready = null; }
+      initOnce() {
+        if (this.ready) return this.ready;
+        this.ready = (async () => {
+          this.swe = new SwissEph();
+          await this.swe.initSwissEph();
+          return this.swe;
+        })();
+        return this.ready;
+      }
+      calcJulianDayUTC(y, m, d, utHours) {
+        return this.swe.julday(y, m, d, utHours);
+      }
+      _resolveBodyId(body) {
+        const swe = this.swe;
+        if (body.computed) return null;
+        const direct = swe[body.idKey];
+        if (typeof direct === "number") return direct;
+
+        if (body.key === "Juno") {
+          const off = swe.SE_AST_OFFSET;
+          if (typeof off === "number") return off + (body.asteroidFallback ?? 3);
+          return null;
+        }
+        return null;
+      }
+      calcBodies(jdUT) {
+        const swe = this.swe;
+        const flags = (swe.SEFLG_SWIEPH | swe.SEFLG_SPEED);
+        const list = [];
+
+        for (const b of BODIES) {
+          if (b.computed) continue;
+          const id = this._resolveBodyId(b);
+          if (typeof id !== "number") continue;
+          const res = swe.calc_ut(jdUT, id, flags);
+          const lon = Number(res?.[0]);
+          const lat = Number(res?.[1]);
+          const lonSpeed = Number(res?.[3]);
+          list.push({ ...b, id, lon: norm360(lon), lat, lonSpeed, retro: (lonSpeed < 0) });
+        }
+
+        const tn = list.find(x => x.key === "Node");
+        if (tn) {
+          const snLon = norm360(tn.lon + 180);
+          list.push({ key:"SouthNode", label:"South Node", glyph:"☋", computed:true, lon: snLon, lat:0, lonSpeed: tn.lonSpeed || 0, retro: (tn.lonSpeed||0)<0 });
+        }
+
+        return list;
+      }
+      parseHousesResult(raw) {
+        let cusps = null, ascmc = null;
+        if (Array.isArray(raw) && raw.length >= 2) { cusps = raw[0]; ascmc = raw[1]; }
+        else if (raw && typeof raw === "object") { cusps = raw.cusps || raw.houses || raw[0]; ascmc = raw.ascmc || raw[1]; }
+
+        const cuspArr = [];
+        for (let i=1;i<=12;i++) cuspArr.push(norm360(Number(cusps?.[i] ?? cusps?.[i-1] ?? (i-1)*30)));
+
+        const asc = norm360(Number(ascmc?.[0] ?? cuspArr[0]));
+        const mc  = norm360(Number(ascmc?.[1] ?? cuspArr[9]));
+        return { cusps:cuspArr, asc, mc };
+      }
+      calcHouses(jdUT, lat, lon) {
+        const raw = this.swe.houses(jdUT, lat, lon, "P");
+        return this.parseHousesResult(raw);
+      }
+    }
+
+    class HouseAssigner {
+      static houseOfLon(lon, cuspLons) {
+        const L = norm360(lon);
+        for (let i=0; i<12; i++) {
+          const a = cuspLons[i];
+          const b = cuspLons[(i+1)%12];
+          if (a <= b) { if (L >= a && L < b) return i+1; }
+          else { if (L >= a || L < b) return i+1; }
+        }
+        return 12;
+      }
+    }
+
+    class AspectCalculator {
+      static _orbLimit(aKey, bKey) {
+        const lum = (k) => (k === "Sun" || k === "Moon");
+        return (lum(aKey) || lum(bKey)) ? 8 : 6;
+      }
+      static findAspects(items) {
+        const aspects = [];
+        for (let i=0; i<items.length; i++) {
+          for (let j=i+1; j<items.length; j++) {
+            const A = items[i], B = items[j];
+            const d = Math.abs(norm180(B.lon - A.lon));
+            for (const asp of ASPECTS) {
+              const orb = Math.abs(d - asp.angle);
+              if (orb <= this._orbLimit(A.key, B.key)) aspects.push({ A, B, aspect: asp, orb });
+            }
+          }
+        }
+        return aspects.sort((x,y) => x.orb - y.orb);
+      }
+      static applyingOrSeparating(pair) {
+        const { A, B, aspect } = pair;
+        const dtDays = 1/24;
+        const A2 = norm360(A.lon + (A.lonSpeed || 0) * dtDays);
+        const B2 = norm360(B.lon + (B.lonSpeed || 0) * dtDays);
+        const d1 = Math.abs(norm180(B.lon - A.lon));
+        const d2 = Math.abs(norm180(B2 - A2));
+        return (Math.abs(d2 - aspect.angle) < Math.abs(d1 - aspect.angle)) ? "Applying" : "Separating";
+      }
+      static buildMatrix(items, aspectHits) {
+        const n = items.length;
+        const cell = Array.from({length:n}, () => Array.from({length:n}, () => null));
+        for (const hit of aspectHits) {
+          const i = items.findIndex(x => x.key === hit.A.key);
+          const j = items.findIndex(x => x.key === hit.B.key);
+          if (i >= 0 && j >= 0) { cell[i][j] = hit; cell[j][i] = hit; }
+        }
+        return cell;
+      }
+    }
+
+    class ChartRenderer {
+      constructor(container) { this.container = container; }
+
+      render({ houses, bodies, aspects }) {
+        const size = 520;
+        const cx = size/2, cy = size/2;
+
+        const R0 = 245, Rz = 215, Rh = 195, RpBase = 145, Ra = 120, Rtext = 232;
+        const RcuspLabel = 258;
+
+        const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        svg.setAttribute("viewBox", `0 0 ${size} ${size}`);
+        svg.setAttribute("width", String(size));
+        svg.setAttribute("height", String(size));
+
+        const add = (el) => (svg.appendChild(el), el);
+
+        const circle = (r, stroke="#bbb", fill="none", w=1) => {
+          const c = document.createElementNS(svg.namespaceURI, "circle");
+          c.setAttribute("cx", cx); c.setAttribute("cy", cy); c.setAttribute("r", r);
+          c.setAttribute("stroke", stroke); c.setAttribute("fill", fill); c.setAttribute("stroke-width", w);
+          return c;
+        };
+        const line = (x1,y1,x2,y2, stroke="#bbb", w=1, dash=null) => {
+          const l = document.createElementNS(svg.namespaceURI, "line");
+          l.setAttribute("x1", x1); l.setAttribute("y1", y1);
+          l.setAttribute("x2", x2); l.setAttribute("y2", y2);
+          l.setAttribute("stroke", stroke); l.setAttribute("stroke-width", w);
+          if (dash) l.setAttribute("stroke-dasharray", dash);
+          l.setAttribute("stroke-linecap", "round");
+          return l;
+        };
+        const text = (x,y, str, sizePx=12, anchor="middle", weight="600", fill="#111") => {
+          const t = document.createElementNS(svg.namespaceURI, "text");
+          t.setAttribute("x", x); t.setAttribute("y", y);
+          t.setAttribute("font-size", sizePx);
+          t.setAttribute("text-anchor", anchor);
+          t.setAttribute("dominant-baseline", "middle");
+          t.setAttribute("font-weight", weight);
+          t.setAttribute("fill", fill);
+          t.textContent = str;
+          return t;
+        };
+        const polar = (r, angRad) => ({
+          x: cx + r * Math.cos(angRad),
+          y: cy - r * Math.sin(angRad)
+        });
+
+        // ASC sabit sol yatay + mirror
+        const ascLon = houses.asc;
+        const lonToAng = (lon) => {
+          const rel = norm360(lon - ascLon);
+          const angDeg = 180 + rel;
+          return deg2rad(angDeg);
+        };
+
+        // Unit vectors at angle (radial & tangent CW)
+        const unitRadial = (ang) => ({ x: Math.cos(ang), y: -Math.sin(ang) });
+        const unitTangentCW = (ang) => {
+          // tangent in clockwise direction (negative of d/dθ)
+          // d/dθ position: (-sin, -cos) with y inverted -> (-sin, -cos) still works in screen coords
+          // CW = (sin, cos)
+          return { x: Math.sin(ang), y: Math.cos(ang) };
+        };
+
+        add(circle(R0, "#999", "none", 1.2));
+        add(circle(Rz, "#bbb", "none", 1));
+        add(circle(Rh, "#bbb", "none", 1));
+        add(circle(RpBase, "#ddd", "none", 1));
+        add(circle(Ra, "#eee", "none", 1));
+
+        // Zodiac div lines + symbols
+        for (let i=0;i<12;i++) {
+          const ang = lonToAng(i*30);
+          const p1 = polar(Rz, ang);
+          const p2 = polar(R0, ang);
+          add(line(p1.x,p1.y,p2.x,p2.y,"#e2e2e2",1));
+          const midLon = i*30 + 15;
+          const pt = polar(Rtext, lonToAng(midLon));
+          const sign = SIGNS[i];
+          add(text(pt.x, pt.y, sign.sym, 16, "middle", "900", SIGN_EL_COL[sign.el]));
+        }
+
+        // House cusps + labels
+        const cuspLons = houses.cusps;
+        for (let i=0;i<12;i++) {
+          const lon = cuspLons[i];
+          const ang = lonToAng(lon);
+          const pIn = polar(Rh, ang);
+          const pOut = polar(R0, ang);
+          add(line(pIn.x, pIn.y, pOut.x, pOut.y, "#bdbdbd", 1));
+
+          const numPt = polar(Rh - 16, ang);
+          add(text(numPt.x, numPt.y, String(i+1), 10, "middle", "900", "#666"));
+
+          const lab = fmtDMS(lon);
+          const labelText = `${lab.dd}°${pad2(lab.mm)}′`;
+          const labPt = polar(RcuspLabel, ang);
+          add(text(labPt.x, labPt.y, labelText, 9, "middle", "700", "#555"));
+        }
+
+        // Axes
+        const ascAng = lonToAng(houses.asc);
+        const dscAng = lonToAng(norm360(houses.asc + 180));
+        const mcAng  = lonToAng(houses.mc);
+        const icAng  = lonToAng(norm360(houses.mc + 180));
+
+        const axisLine = (ang) => {
+          const p1 = polar(Rh-10, ang);
+          const p2 = polar(R0+10, ang);
+          add(line(p1.x,p1.y,p2.x,p2.y,"var(--axis)",2.6));
+        };
+        axisLine(ascAng); axisLine(dscAng);
+        axisLine(mcAng);  axisLine(icAng);
+
+        const mark = (ang, label) => {
+          const pt = polar(R0+22, ang);
+          add(text(pt.x, pt.y, label, 11, "middle", "900", "#333"));
+        };
+        mark(ascAng, "ASC");
+        mark(dscAng, "DSC");
+        mark(mcAng, "MC");
+        mark(icAng, "IC");
+
+        // Aspects in center
+        const aspectStyle = (asp) => {
+          if (asp.cls === "soft") return { w:1.4, dash:null, stroke:"var(--aspSoft)" };
+          if (asp.cls === "hard") return { w:1.6, dash:null, stroke:"var(--aspHard)" };
+          return { w:1.1, dash:"2 2", stroke:"#aaa" };
+        };
+
+        // Build placements (glyph angle fixed, but we can tweak label angle/offset)
+        const drawable = bodies.filter(b => !["ASC","MC"].includes(b.key));
+        const placements = drawable
+          .map(b => ({ b, ang: lonToAng(b.lon) }))
+          .sort((a,b) => a.ang - b.ang);
+
+        // 1) Glyph stacking (radial + small jitter)
+        const minGlyphSep = deg2rad(11.5);
+        for (let i=0;i<placements.length;i++) {
+          let close = 0;
+          for (let j=i-1; j>=0; j--) {
+            let da = Math.abs(placements[i].ang - placements[j].ang);
+            while (da > Math.PI) da = Math.abs(da - 2*Math.PI);
+            if (da < minGlyphSep) close++;
+            else break;
+          }
+          placements[i].glyphR = RpBase - close*22;          // more space
+          placements[i].ang += (close ? (close%2? 1:-1) * deg2rad(2.6*close) : 0);
+        }
+
+        // 2) Label angle separation pass (in angle-space)
+        //    labels will be pushed tangentially, so keep min separation by adjusting labelAngle (not glyph).
+        placements.forEach(p => p.labelAng = p.ang);
+        const minLabelSep = deg2rad(9.0);
+        for (let iter=0; iter<10; iter++) {
+          placements.sort((a,b)=>a.labelAng-b.labelAng);
+          for (let i=1;i<placements.length;i++) {
+            const prev = placements[i-1], cur = placements[i];
+            let da = cur.labelAng - prev.labelAng;
+            if (da < minLabelSep) {
+              const push = (minLabelSep - da) * 0.55;
+              cur.labelAng += push;
+              prev.labelAng -= push;
+            }
+          }
+        }
+
+        // Aspects (orb <= 3°)
+        const aspectLines = aspects.filter(x => x.orb <= 3.0 && !["ASC","MC"].includes(x.A.key) && !["ASC","MC"].includes(x.B.key));
+        for (const hit of aspectLines) {
+          const pa = placements.find(p => p.b.key === hit.A.key);
+          const pb = placements.find(p => p.b.key === hit.B.key);
+          if (!pa || !pb) continue;
+          const A = polar(Ra, pa.ang);
+          const B = polar(Ra, pb.ang);
+          const st = aspectStyle(hit.aspect);
+          add(line(A.x,A.y,B.x,B.y, st.stroke, st.w, st.dash));
+        }
+
+        // Stationary threshold (deg/day)
+        const STATIONARY_T = 0.0002;
+
+        // 3) Draw glyph + label placed to the OTHER SIDE (tangent CW), not on top of glyph.
+        //    Also shrink label font.
+        for (const p of placements) {
+          const col = (getComputedStyle(document.documentElement).getPropertyValue(PLANET_COLORS[p.b.key]?.replace("var(","").replace(")","") || "") || "").trim();
+          const glyphColor = PLANET_COLORS[p.b.key] || "#111";
+
+          const gPt = polar(p.glyphR, p.ang);
+          add(text(gPt.x, gPt.y, p.b.glyph, 18, "middle", "900", glyphColor));
+
+          const dm = fmtDMS(p.b.lon);
+          const speed = Math.abs(p.b.lonSpeed || 0);
+          const isS = speed > 0 && speed <= STATIONARY_T;
+          const isR = (p.b.lonSpeed || 0) < 0;
+          const tag = isS ? "(S)" : (isR ? "(Rx)" : "");
+          const dmTxt = `${dm.dd}°${pad2(dm.mm)}′${tag ? " " + tag : ""}`;
+
+          // label point: start at glyph point, move outward a bit AND along tangent CW
+          // crucial: "gezegenin diğer yanı" => always tangential CW side
+          const ur = unitRadial(p.labelAng);
+          const ut = unitTangentCW(p.labelAng);
+
+          const baseOut = 16 + (RpBase - p.glyphR) * 0.25; // farther if stacked inward
+          const baseTan = 24 + (RpBase - p.glyphR) * 0.35;
+
+          const lx = gPt.x + ur.x * baseOut + ut.x * baseTan;
+          const ly = gPt.y + ur.y * baseOut + ut.y * baseTan;
+
+          // rotate label to follow local tangent a bit (like your reference)
+          let angDeg = rad2deg(p.labelAng);
+          let rot = -(angDeg - 90); // tangent-ish
+          // keep readable
+          if (angDeg > 90 && angDeg < 270) rot += 180;
+
+          const lab = text(lx, ly, dmTxt, 6.6, "middle", "800", "#333");
+          lab.setAttribute("transform", `rotate(${rot} ${lx} ${ly})`);
+          add(lab);
+        }
+
+        this.container.innerHTML = "";
+        this.container.appendChild(svg);
+      }
+    }
+
+    class App {
+      constructor() {
+        this.nominatim = new NominatimService();
+        this.tzSvc = new TimezoneService();
+        this.engine = new SwissEphEngine();
+        this.renderer = new ChartRenderer($("#chartWrap"));
+        this.state = { loc: null, tz: null, disambiguation: "later" };
+
+        this.dom = {
+          statusBox: $("#statusBox"),
+          dateInput: $("#dateInput"),
+          timeInput: $("#timeInput"),
+          datePretty: $("#datePretty"),
+          locInput: $("#locInput"),
+          locResults: $("#locResults"),
+          latInput: $("#latInput"),
+          lonInput: $("#lonInput"),
+          tzSelect: $("#tzSelect"),
+          dstBox: $("#dstBox"),
+          calcBtn: $("#calcBtn"),
+          locName: $("#locName"),
+          locLatLon: $("#locLatLon"),
+          locTz: $("#locTz"),
+          locOffset: $("#locOffset"),
+          locUtc: $("#locUtc"),
+          planetTable: $("#planetTable tbody"),
+          houseTable: $("#houseTable tbody"),
+          aspectList: $("#aspectList tbody"),
+          aspectMatrix: $("#aspectMatrix"),
+          engineInfo: $("#engineInfo")
+        };
+      }
+
+      async init() {
+        this._initTimeZoneDropdown();
+        this._initDefaults();
+        this._bindUI();
+
+        this._setStatus("WASM yükleniyor…", "tiny");
+        try {
+          await this.engine.initOnce();
+          this._setStatus("Hazır. Lokasyon seç → hesapla.", "ok");
+          this.dom.engineInfo.textContent = "Swiss Ephemeris: WASM (swisseph-wasm) • Placidus ev • Tropical zodyak";
+        } catch (e) {
+          console.error(e);
+          this._setStatus("WASM import/init hatası. Console'a bak.", "error");
+        }
+
+        this._scheduleRecalc();
+      }
+
+      _setStatus(msg, kind="tiny") {
+        const el = this.dom.statusBox;
+        el.className = "";
+        if (kind === "error") el.classList.add("error");
+        else if (kind === "warn") el.classList.add("warn");
+        else if (kind === "ok") el.classList.add("ok");
+        else el.classList.add("tiny");
+        el.textContent = msg || "";
+      }
+
+      _initTimeZoneDropdown() {
+        const tzSel = this.dom.tzSelect;
+        tzSel.innerHTML = "";
+        for (const tz of this.tzSvc.tzList) {
+          const opt = document.createElement("option");
+          opt.value = tz;
+          opt.textContent = tz;
+          tzSel.appendChild(opt);
+        }
+      }
+
+      _initDefaults() {
+        const now = new Date();
+        const yyyy = now.getFullYear();
+        const mm = pad2(now.getMonth()+1);
+        const dd = pad2(now.getDate());
+        const hh = pad2(now.getHours());
+        const mi = pad2(now.getMinutes());
+
+        this.dom.dateInput.value = `${yyyy}-${mm}-${dd}`;
+        this.dom.timeInput.value = `${hh}:${mi}`;
+        this._updateDatePretty();
+
+        const browserTz = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+        const fallbackTz = isSupportedIana(browserTz) ? browserTz : "UTC";
+        if ([...this.dom.tzSelect.options].some(o => o.value === fallbackTz)) this.dom.tzSelect.value = fallbackTz;
+        else this.dom.tzSelect.value = "UTC";
+
+        this.state.tz = this.dom.tzSelect.value;
+        this._renderLocSummary();
+      }
+
+      _bindUI() {
+        const debouncedLocSearch = debounce(async () => {
+          const q = this.dom.locInput.value.trim();
+          if (q.length < 3) { this._hideLocResults(); return; }
+          try {
+            const items = await this.nominatim.search(q);
+            this._showLocResults(items);
+          } catch (e) {
+            console.error(e);
+            this._setStatus("Lokasyon araması hata verdi (Nominatim).", "warn");
+            this._hideLocResults();
+          }
+        }, 350);
+
+        this.dom.locInput.addEventListener("input", () => debouncedLocSearch());
+
+        document.addEventListener("click", (ev) => {
+          if (!this.dom.locInput.contains(ev.target) && !this.dom.locResults.contains(ev.target)) this._hideLocResults();
+        });
+
+        const autoRecalc = debounce(() => this._recalc(), 450);
+
+        this.dom.dateInput.addEventListener("change", () => { this._updateDatePretty(); this._scheduleRecalc(autoRecalc); });
+        this.dom.timeInput.addEventListener("change", () => { this._scheduleRecalc(autoRecalc); });
+        this.dom.tzSelect.addEventListener("change", () => {
+          this.state.tz = this.dom.tzSelect.value;
+          this._updateDSTBox();
+          this._scheduleRecalc(autoRecalc);
+        });
+
+        this.dom.calcBtn.addEventListener("click", () => this._recalc());
+      }
+
+      _updateDatePretty() {
+        const v = this.dom.dateInput.value;
+        const m = v.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        this.dom.datePretty.textContent = m ? `gün/ay/yıl: ${m[3]}/${m[2]}/${m[1]}` : "";
+      }
+
+      _scheduleRecalc(fn) { (fn || debounce(() => this._recalc(), 450))(); }
+
+      _showLocResults(items) {
+        const box = this.dom.locResults;
+        box.innerHTML = "";
+        if (!items.length) {
+          const div = document.createElement("div");
+          div.style.padding = "10px 12px";
+          div.className = "tiny";
+          div.textContent = "Sonuç yok.";
+          box.appendChild(div);
+        } else {
+          for (const it of items) {
+            const b = document.createElement("button");
+            b.type = "button";
+            b.textContent = it.displayName;
+            b.addEventListener("click", () => { this._selectLocation(it); this._hideLocResults(); });
+            box.appendChild(b);
+          }
+        }
+        box.style.display = "block";
+      }
+
+      _hideLocResults() { this.dom.locResults.style.display = "none"; }
+
+      _selectLocation(it) {
+        this.state.loc = { ...it };
+        this.dom.locInput.value = it.displayName;
+        this.dom.latInput.value = String(it.lat);
+        this.dom.lonInput.value = String(it.lon);
+
+        let tz = null;
+        try { tz = this.tzSvc.lookup(it.lat, it.lon); } catch (e) { console.error(e); }
+
+        if (tz) {
+          this.state.tz = tz;
+          if ([...this.dom.tzSelect.options].some(o => o.value === tz)) {
+            this.dom.tzSelect.value = tz;
+          } else {
+            const opt = document.createElement("option");
+            opt.value = tz;
+            opt.textContent = tz;
+            this.dom.tzSelect.appendChild(opt);
+            this.dom.tzSelect.value = tz;
+          }
+        } else {
+          this._setStatus("Timezone otomatik bulunamadı. Dropdown’dan elle seç.", "warn");
+        }
+
+        this._updateDSTBox();
+        this._renderLocSummary();
+        this._scheduleRecalc();
+      }
+
+      _parseInputs() {
+        const d = this.dom.dateInput.value.trim();
+        const t = this.dom.timeInput.value.trim();
+        const tz = this.state.tz || this.dom.tzSelect.value;
+
+        const md = d.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        const mt = t.match(/^(\d{2}):(\d{2})$/);
+        if (!md) throw new Error("Tarih seç (date picker).");
+        if (!mt) throw new Error("Saat seç (time picker).");
+        if (!tz) throw new Error("Timezone yok.");
+        if (!isSupportedIana(tz)) throw new Error(`Timezone desteklenmiyor: ${tz}`);
+
+        return { year: Number(md[1]), month: Number(md[2]), day: Number(md[3]), hour: Number(mt[1]), minute: Number(mt[2]), tz };
+      }
+
+      _updateDSTBox() {
+        const box = this.dom.dstBox;
+        box.style.display = "none";
+        box.innerHTML = "";
+
+        let parsed;
+        try { parsed = this._parseInputs(); } catch { return; }
+
+        const { year, month, day, hour, minute, tz } = parsed;
+
+        let info;
+        try { info = TimeZoneMath.analyzeLocal(tz, year, month, day, hour, minute); }
+        catch (e) {
+          console.error(e);
+          box.style.display = "block";
+          const w = document.createElement("div");
+          w.className = "warn";
+          w.textContent = `DST kontrolü yapılamadı: ${e.message || e}`;
+          box.appendChild(w);
+          return;
+        }
+
+        if (info.kind === "unique") { this.state.disambiguation = "later"; return; }
+
+        box.style.display = "block";
+        const wrap = document.createElement("div");
+        wrap.className = "warn";
+
+        if (info.kind === "nonexistent") {
+          wrap.innerHTML = `
+            <div style="font-weight:900;margin-bottom:6px;">DST: Bu yerel saat yok (ileri atlama / gap).</div>
+            <div class="small">Bu zamanı hesaplayamazsın çünkü o dakika o bölgede yaşanmamış. Başka saat seç.</div>
+          `;
+        }
+
+        if (info.kind === "ambiguous") {
+          const [earlier, later] = info.candidates;
+          wrap.innerHTML = `
+            <div style="font-weight:900;margin-bottom:6px;">DST: Bu yerel saat iki kez yaşanıyor (ambiguous / fold).</div>
+            <div class="small">Varsayılan: <b>later offset</b>. İstersen diğerini seç.</div>
+            <div style="margin-top:10px; display:grid; gap:8px;">
+              <label class="small"><input type="radio" name="dstPick" value="earlier"> Earlier (UTC: <span class="mono">${TimeZoneMath.utcMsToISOZ(earlier.utcMs)}</span>)</label>
+              <label class="small"><input type="radio" name="dstPick" value="later" checked> Later (UTC: <span class="mono">${TimeZoneMath.utcMsToISOZ(later.utcMs)}</span>)</label>
+            </div>
+          `;
+          setTimeout(() => {
+            const radios = box.querySelectorAll('input[name="dstPick"]');
+            radios.forEach(r => r.addEventListener("change", () => {
+              this.state.disambiguation = r.value;
+              this._renderLocSummary();
+              this._scheduleRecalc();
+            }));
+          }, 0);
+          this.state.disambiguation = "later";
+        }
+
+        box.appendChild(wrap);
+      }
+
+      _renderLocSummary(picked=null) {
+        const loc = this.state.loc;
+        const tz = this.state.tz || this.dom.tzSelect.value;
+
+        this.dom.locName.textContent = loc?.displayName || "—";
+        this.dom.locLatLon.textContent = (loc ? `${loc.lat.toFixed(6)}, ${loc.lon.toFixed(6)}` : "—");
+        this.dom.locTz.textContent = tz || "—";
+
+        if (!picked) {
+          try {
+            const { year, month, day, hour, minute } = this._parseInputs();
+            const info = TimeZoneMath.analyzeLocal(tz, year, month, day, hour, minute);
+            picked = TimeZoneMath.pickCandidate(info, this.state.disambiguation || "later");
+          } catch {}
+        }
+
+        if (picked) {
+          const offsetMin = TimeZoneMath.getOffsetMinutes(tz, picked.utcMs);
+          this.dom.locOffset.textContent = fmtGmtOffset(offsetMin);
+          this.dom.locUtc.textContent = TimeZoneMath.utcMsToISOZ(picked.utcMs);
+        } else {
+          this.dom.locOffset.textContent = "—";
+          this.dom.locUtc.textContent = "—";
+        }
+      }
+
+      async _recalc() {
+        let parsed;
+        try { parsed = this._parseInputs(); }
+        catch (e) { this._setStatus(e.message, "warn"); return; }
+
+        const loc = this.state.loc;
+        if (!loc) { this._setStatus("Lokasyon seçilmedi. Arama kutusundan bir yer seç.", "warn"); return; }
+
+        const { year, month, day, hour, minute, tz } = parsed;
+
+        this._updateDSTBox();
+
+        let picked;
+        try {
+          const info = TimeZoneMath.analyzeLocal(tz, year, month, day, hour, minute);
+          picked = TimeZoneMath.pickCandidate(info, this.state.disambiguation || "later");
+          if (!picked) {
+            this._setStatus("Bu yerel saat o timezone’da yok (DST gap). Başka saat seç.", "error");
+            this._renderLocSummary(null);
+            return;
+          }
+        } catch (e) {
+          console.error(e);
+          this._setStatus(`Timezone dönüşümü hata verdi: ${e.message || e}`, "error");
+          return;
+        }
+
+        this._renderLocSummary(picked);
+
+        const utc = new Date(picked.utcMs);
+        const y = utc.getUTCFullYear();
+        const m = utc.getUTCMonth() + 1;
+        const d = utc.getUTCDate();
+        const utHours = utc.getUTCHours() + utc.getUTCMinutes()/60 + utc.getUTCSeconds()/3600;
+
+        this._setStatus("Hesaplanıyor…", "tiny");
+        try {
+          await this.engine.initOnce();
+
+          const jdUT = this.engine.calcJulianDayUTC(y, m, d, utHours);
+          const houses = this.engine.calcHouses(jdUT, loc.lat, loc.lon);
+          const bodies = this.engine.calcBodies(jdUT);
+
+          const anglePoints = [
+            { key:"ASC", label:"ASC", glyph:"ASC", lon: houses.asc, lat:0, lonSpeed:0, retro:false },
+            { key:"MC",  label:"MC",  glyph:"MC",  lon: houses.mc,  lat:0, lonSpeed:0, retro:false },
+          ];
+
+          for (const b of bodies) b.house = HouseAssigner.houseOfLon(b.lon, houses.cusps);
+
+          const aspectsAll = AspectCalculator.findAspects([...bodies, ...anglePoints]);
+
+          const matrixBodies = bodies
+            .filter(b => MATRIX_KEYS.includes(b.key))
+            .sort((a,b) => MATRIX_KEYS.indexOf(a.key) - MATRIX_KEYS.indexOf(b.key));
+          const matrixAspects = aspectsAll.filter(a => MATRIX_KEYS.includes(a.A.key) && MATRIX_KEYS.includes(a.B.key));
+
+          this._renderPlanetTable(bodies);
+          this._renderHouseTable(houses);
+          this._renderAspectList(aspectsAll);
+          this._renderAspectMatrix(matrixBodies, matrixAspects);
+          this.renderer.render({ houses, bodies, aspects: aspectsAll });
+
+          this._setStatus("Tamam.", "ok");
+        } catch (e) {
+          console.error(e);
+          this._setStatus(`Hesaplama hatası: ${e.message || e}`, "error");
+        }
+      }
+
+      _renderPlanetTable(bodies) {
+        const tb = this.dom.planetTable;
+        tb.innerHTML = "";
+        for (const b of bodies) {
+          const dms = fmtDMS(b.lon);
+          const sign = SIGNS[dms.signIndex];
+          const color = PLANET_COLORS[b.key] || "#111";
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td><span class="mono" style="color:${color}">${b.glyph}</span> ${b.label}</td>
+            <td class="mono">${b.lon.toFixed(6)}</td>
+            <td><span style="color:${SIGN_EL_COL[sign.el]}">${sign.sym}</span> ${sign.name}</td>
+            <td class="mono">${pad2(dms.dd)}°${pad2(dms.mm)}′${pad2(dms.ss)}″</td>
+            <td class="center mono">${b.retro ? "R" : ""}</td>
+            <td class="center mono">${b.house || ""}</td>
+          `;
+          tb.appendChild(tr);
+        }
+      }
+
+      _renderHouseTable(houses) {
+        const tb = this.dom.houseTable;
+        tb.innerHTML = "";
+        for (let i=0; i<12; i++) {
+          const lon = houses.cusps[i];
+          const dms = fmtDMS(lon);
+          const sign = SIGNS[dms.signIndex];
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td class="center mono">${i+1}</td>
+            <td><span style="color:${SIGN_EL_COL[sign.el]}">${sign.sym}</span> ${sign.name}</td>
+            <td class="mono">${pad2(dms.dd)}°${pad2(dms.mm)}′${pad2(dms.ss)}″</td>
+            <td class="mono">${lon.toFixed(6)}</td>
+          `;
+          tb.appendChild(tr);
+        }
+      }
+
+      _renderAspectList(aspects) {
+        const tb = this.dom.aspectList;
+        tb.innerHTML = "";
+        for (const a of aspects) {
+          const appsep = AspectCalculator.applyingOrSeparating(a);
+          const color = (a.aspect.cls === "hard") ? "var(--aspHard)" : "var(--aspSoft)";
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td>${a.A.label}</td>
+            <td>${a.B.label}</td>
+            <td class="mono"><span style="color:${color};font-weight:900">${a.aspect.sym}</span> ${a.aspect.name} (${a.aspect.angle}°)</td>
+            <td class="mono">${orbToText(a.orb)}</td>
+            <td class="mono">${appsep}</td>
+          `;
+          tb.appendChild(tr);
+        }
+      }
+
+      _renderAspectMatrix(bodies, aspects) {
+        const tbl = this.dom.aspectMatrix;
+        tbl.innerHTML = "";
+
+        const hits = AspectCalculator.buildMatrix(bodies, aspects);
+
+        const thead = document.createElement("thead");
+        const hrow = document.createElement("tr");
+        hrow.appendChild(Object.assign(document.createElement("th"), { textContent: "" }));
+        for (const b of bodies) {
+          const th = document.createElement("th");
+          th.className = "aspectCell";
+          th.innerHTML = `<span class="mono" style="color:${PLANET_COLORS[b.key] || "#111"}">${b.glyph}</span><span class="lab">${b.key}</span>`;
+          hrow.appendChild(th);
+        }
+        thead.appendChild(hrow);
+        tbl.appendChild(thead);
+
+        const tbody = document.createElement("tbody");
+        for (let i=0;i<bodies.length;i++) {
+          const tr = document.createElement("tr");
+          const rowH = document.createElement("th");
+          rowH.className = "aspectCell";
+          rowH.innerHTML = `<span class="mono" style="color:${PLANET_COLORS[bodies[i].key] || "#111"}">${bodies[i].glyph}</span><span class="lab">${bodies[i].key}</span>`;
+          tr.appendChild(rowH);
+
+          for (let j=0;j<bodies.length;j++) {
+            const td = document.createElement("td");
+            td.className = "aspectCell";
+            if (i === j) {
+              td.textContent = "—";
+              td.classList.add("muted");
+            } else {
+              const hit = hits[i][j];
+              if (hit) {
+                const cls = (hit.aspect.cls === "hard") ? "aspHardTxt" : "aspSoftTxt";
+                td.innerHTML = `<span class="aspSym ${cls}" title="${hit.aspect.name} ${orbToText(hit.orb)}">${hit.aspect.sym}</span>`;
+              } else {
+                td.textContent = "";
+              }
+            }
+            tr.appendChild(td);
+          }
+          tbody.appendChild(tr);
+        }
+        tbl.appendChild(tbody);
+      }
+    }
+
+    const app = new App();
+    await app.init();
+  </script>
+</body>
+</html>
